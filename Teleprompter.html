@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter Simples</title>
+    <style>
+        :root {
+            --bg-color: #111111;
+            --text-color: #ffffff;
+            --font-size: 28px;
+            --scroll-speed: 20s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Painel de Configuração */
+        #config-panel {
+            width: 350px;
+            background: #ffffff;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+
+        #config-panel.hidden {
+            transform: translateX(-100%);
+            position: absolute;
+        }
+
+        h2 {
+            font-size: 20px;
+            margin-bottom: 5px;
+            color: #222;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        textarea, select, input[type="color"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+            height: 120px;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 40px;
+            cursor: pointer;
+        }
+
+        button {
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Área do Teleprompter */
+        #teleprompter-area {
+            flex: 1;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        .scroll-container {
+            position: absolute;
+            width: 80%;
+            text-align: center;
+            top: 100%;
+            animation: scrollText var(--scroll-speed) linear infinite;
+            animation-play-state: paused;
+        }
+
+        .scroll-container.running {
+            animation-play-state: running;
+        }
+
+        .teleprompter-text {
+            font-size: var(--font-size);
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Animação para rolar o texto */
+        @keyframes scrollText {
+            0% {
+                top: 100%;
+            }
+            100% {
+                top: -100%;
+            }
+        }
+
+        /* Botão Flutuante */
+        #btn-settings {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        #btn-settings:hover {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Painel de Configurações -->
+    <div id="config-panel">
+        <h2>Configurar Teleprompter</h2>
+
+        <div class="form-group">
+            <label for="text-input">Texto:</label>
+            <textarea id="text-input" placeholder="Digite ou cole seu texto aqui..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="font-size-select">Tamanho do Texto:</label>
+            <select id="font-size-select">
+                <option value="18px">Pequeno</option>
+                <option value="28px" selected>Médio</option>
+                <option value="42px">Grande</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="text-color-picker">Cor do Texto:</label>
+            <input type="color" id="text-color-picker" value="#ffffff">
+        </div>
+
+        <div class="form-group">
+            <label for="speed-select">Velocidade:</label>
+            <select id="speed-select">
+                <option value="35s">Devagar</option>
+                <option value="20s" selected>Normal</option>
+                <option value="10s">Rápido</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="bg-color-picker">Cor de Fundo:</label>
+            <input type="color" id="bg-color-picker" value="#111111">
+        </div>
+
+        <button id="btn-start">Executar Teleprompter</button>
+    </div>
+
+    <!-- Botão para voltar às configurações -->
+    <button id="btn-settings" title="Configurações">⚙️</button>
+
+    <!-- Área de Exibição do Teleprompter -->
+    <div id="teleprompter-area">
+        <div class="scroll-container" id="scroll-container">
+            <p class="teleprompter-text" id="teleprompter-output">Seu texto aparecerá aqui...</p>
+        </div>
+    </div>
+
+    <script>
+        const configPanel = document.getElementById('config-panel');
+        const btnStart = document.getElementById('btn-start');
+        const btnSettings = document.getElementById('btn-settings');
+        const scrollContainer = document.getElementById('scroll-container');
+
+        const textInput = document.getElementById('text-input');
+        const teleprompterOutput = document.getElementById('teleprompter-output');
+        const fontSizeSelect = document.getElementById('font-size-select');
+        const textColorPicker = document.getElementById('text-color-picker');
+        const speedSelect = document.getElementById('speed-select');
+        const bgColorPicker = document.getElementById('bg-color-picker');          
+
+        // Atualizar cor do texto via variável CSS
+        textColorPicker.addEventListener('input', (event) => {
+            document.documentElement.style.setProperty('--text-color', event.target.value);
+        });
+
+        // Atualizar cor de fundo via variável CSS
+        bgColorPicker.addEventListener('input', (event) => {
+            document.documentElement.style.setProperty('--bg-color', event.target.value);
+        });
+
+        // Iniciar teleprompter
+        btnStart.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            if (!text) {
+                alert('Por favor, insira algum texto para o teleprompter.');
+                return;
+            }
+
+            // Atribui o texto digitado na textarea
+            teleprompterOutput.innerText = text;
+
+            // Aplicar valores das variáveis CSS
+            document.documentElement.style.setProperty('--font-size', fontSizeSelect.value);
+            document.documentElement.style.setProperty('--text-color', textColorPicker.value);
+            document.documentElement.style.setProperty('--bg-color', bgColorPicker.value);
+            document.documentElement.style.setProperty('--scroll-speed', speedSelect.value);
+
+            // Esconder painel e exibir botão de configurações
+            configPanel.classList.add('hidden');
+            btnSettings.style.display = 'flex';
+
+            // Reiniciar animação CSS
+            scrollContainer.classList.remove('running');
+            void scrollContainer.offsetWidth; // Força reflow
+            scrollContainer.classList.add('running');
+        });
+
+        // Voltar ao painel
+        btnSettings.addEventListener('click', () => {
+            configPanel.classList.remove('hidden');
+            btnSettings.style.display = 'none';
+            scrollContainer.classList.remove('running');
+        });
+    </script>
+</body>
+</html>
